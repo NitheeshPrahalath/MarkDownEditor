@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
+.novel-preview {
+  scroll-behavior: smooth;
+}
+
+.novel-preview h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 0.8em 0 0.5em;
+  line-height: 1.25;
+}
+
+.novel-preview h2 {
+  font-size: 1.55em;
+  font-weight: 700;
+  margin: 0.8em 0 0.45em;
+  line-height: 1.3;
+}
+
+.novel-preview h3 {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin: 0.75em 0 0.4em;
+}
+
+.novel-preview h4 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin: 0.7em 0 0.35em;
+}
+
+.novel-preview h5 {
+  font-size: 1em;
+  font-weight: 600;
+  margin: 0.65em 0 0.3em;
+}
+
+.novel-preview h6 {
+  font-size: 0.9em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin: 0.6em 0 0.3em;
+}
+
+.novel-preview p {
+  margin: 0 0 0.35em;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.novel-preview blockquote {
+  margin: 0.8em 0;
+  padding: 0.3em 1em;
+  border-left: 3px solid #c4b5fd;
+  color: #4b5563;
+  background: #faf5ff;
+}
+
+.novel-preview blockquote p {
+  text-indent: 0;
+}
+
+.novel-preview ul,
+.novel-preview ol {
+  margin: 0.5em 0;
+  padding-left: 2em;
+}
+
+.novel-preview li {
+  margin: 0.2em 0;
+}
+
+.novel-preview hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.5em auto;
+  width: 60%;
+}
+
+.novel-preview code {
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-size: 0.9em;
+}
+
+.novel-preview pre {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+}
+
+.novel-preview pre code {
+  background: none;
+  padding: 0;
+}
+
+.novel-preview a {
+  color: #7c3aed;
+  text-decoration: underline;
+}
+
+.novel-preview img {
+  max-width: 100%;
+}
+
+.novel-preview table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.novel-preview th,
+.novel-preview td {
+  border: 1px solid #e5e7eb;
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+
+.novel-preview th {
+  background: #f9fafb;
+}
+
+.dark .novel-preview {
+  color: #d1d5db;
+}
+
+.dark .novel-preview h1,
+.dark .novel-preview h2,
+.dark .novel-preview h3,
+.dark .novel-preview h4,
+.dark .novel-preview h5 {
+  color: #f3f4f6;
+}
+
+.dark .novel-preview h6 {
+  color: #9ca3af;
+}
+
+.dark .novel-preview blockquote {
+  border-left-color: #6d28d9;
+  color: #9ca3af;
+  background: rgba(109, 40, 217, 0.12);
+}
+
+.dark .novel-preview hr {
+  border-top-color: #374151;
+}
+
+.dark .novel-preview code {
+  background: #1f2937;
+}
+
+.dark .novel-preview pre {
+  background: #111827;
+  border-color: #374151;
+}
+
+.dark .novel-preview a {
+  color: #a78bfa;
+}
+
+.dark .novel-preview th,
+.dark .novel-preview td {
+  border-color: #374151;
+}
+
+.dark .novel-preview th {
+  background: #111827;
+}

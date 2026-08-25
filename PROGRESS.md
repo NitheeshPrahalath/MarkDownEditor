@@ -256,4 +256,114 @@ The **Commit** and **Commit & Push** buttons run `git add -A` server-side before
 
 ---
 
+## Step 6: DOCX Editing, Sidebar Toggle, Open Folder & Bug Fixes
+> **Status:** Complete
+
+### Tasks
+- [x] Fix DOCX file viewing (mammoth import path fix)
+- [x] Add DOCX editing support (plain text mode with save-back)
+- [x] Fix SetupDialog cancel button functionality
+- [x] Add "Set Folder" button to reopen setup dialog
+- [x] Add "Open Folder" feature to open working directory in system file explorer
+- [x] Add sidebar minimize toggle via "Novel Editor" header button
+- [x] Persist sidebar state across sessions
+
+### Changes Log
+
+#### DOCX Viewing Fix
+- `src/components/DocxViewer.tsx`: Fixed mammoth import from `mammoth/mammoth.browser` (invalid path) to `mammoth` (Vite handles browser field resolution automatically)
+
+#### DOCX Editing Support
+- Added `docx` npm package (~500KB) for creating .docx files programmatically
+- `server/index.mjs`: Added `writeDocxSafe()` function that creates minimal .docx files using the `docx` package (paragraphs with Times New Roman 12pt)
+- `server/index.mjs`: Added `POST /api/file/docx` endpoint for writing DOCX files
+- `src/api.ts`: Added `writeDocx()` and `openFolder()` API methods
+- `src/store.ts`: Added `docxText` and `savedDocxText` state for tracking extracted text separately from base64 content
+- `src/store.ts`: `openFile()` now extracts raw text from DOCX via mammoth for editing
+- `src/store.ts`: `setDocxText()` action with auto-save support
+- `src/store.ts`: `saveFile()` now routes DOCX saves through `api.writeDocx()` instead of `api.writeFile()`
+- `src/components/EditorCanvas.tsx`: DOCX files now show editable textarea with extracted text + optional preview, instead of read-only viewer
+- Banner indicates "Editing as plain text — save writes back to .docx"
+
+#### SetupDialog Cancel Button Fix
+- `src/App.tsx`: Added `setupDismissed` state to track when user cancels setup
+- `SetupDialog.onClose` now sets `setupDismissed = true` instead of no-op
+- Dialog only shown when `!configured && !setupDismissed`
+
+#### Set Folder Button
+- Header shows "Set Folder" button when `!configured && setupDismissed`
+- Clicking reopens the setup dialog to configure a working directory
+
+#### Open Folder Feature
+- `server/index.mjs`: Added `POST /api/open-folder` endpoint
+- Uses `xdg-open` (Linux/ChromeOS), `open` (macOS), or `explorer` (Windows) via `child_process.exec`
+- Zero additional storage cost (uses existing Node.js built-in modules)
+- `src/App.tsx`: Added folder icon button in header (visible when configured)
+- `src/api.ts`: Added `openFolder()` method
+
+#### Sidebar Minimize Toggle
+- `src/store.ts`: Added `sidebarOpen` state (default `true`) with `toggleSidebar()` action
+- `src/store.ts`: `sidebarOpen` persisted in localStorage via zustand persist middleware
+- `src/App.tsx`: "Novel Editor" header text is now a clickable button with chevron indicator
+- `src/App.tsx`: `ChapterList` only rendered when `sidebarOpen` is true
+- Chevron rotates based on sidebar state (down = open, left = collapsed)
+
+### Bundle Size Impact
+| Item | Size |
+|------|------|
+| `docx` npm package | ~500 KB |
+| New backend code | ~2 KB |
+| New frontend code | ~5 KB |
+| **Total addition** | **~507 KB** |
+
+### Platform Support
+- **ChromeOS (primary):** `xdg-open` for folder opening, all features work
+- **Linux:** Full support including folder opening
+- **macOS:** Folder opening uses `open` command
+- **Windows:** Folder opening uses `explorer` command
+
+### Bug Fixes (Post-Step 6)
+
+#### DOCX Text Extraction Fix
+- **Issue:** DOCX files showed empty content — `mammoth.extractRawText()` was silently failing
+- **Root cause:** Dynamic `import('mammoth')` in the browser was unreliable; the catch block swallowed errors
+- **Fix:** Changed to top-level `import mammoth from 'mammoth'` (Vite resolves browser field automatically)
+- Added explicit `atob()` decode with manual byte-by-byte conversion (more robust than `Uint8Array.from`)
+- Added `console.error` logging in catch block for debugging
+
+#### DOCX Preview Simplification
+- **Issue:** DOCX preview panel could fail after save-reopen cycle (reconstructed DOCX from plain text)
+- **Fix:** Removed preview pane from DOCX editor — shows only the editable text area
+- Added helpful error messages in `DocxViewer.tsx` for edge cases
+
+#### Set Folder Button Fix
+- **Issue:** "Set Folder" was conditional and didn't open a file manager
+- **Fix:** "Set Folder" now always visible in header, clicking it opens the setup dialog
+- `SetupDialog` now includes a folder icon button that opens the system file manager (`xdg-open`)
+- Pre-fills input with current working directory when changing folders
+- `POST /api/open-folder` now accepts optional `{path}` parameter to open any directory
+
+### Round 2 Fixes
+
+#### Cancel Button Fix
+- **Issue:** Cancel button couldn't dismiss the dialog on first launch (when `configured` is false)
+- **Root cause:** Dialog condition `{(!configured || showSetup)}` meant it always showed when not configured
+- **Fix:** Added `setupDismissed` state — Cancel sets it to true, "Set Folder" resets it to false
+- Dialog now respects both `configured` and `setupDismissed` states
+
+#### Open Folder Button Fix
+- **Issue:** Open folder button did nothing when clicked
+- **Root cause:** Backend `readBody` hung waiting for body data on POST requests with no body; frontend sent no body when path was empty
+- **Fix:** Backend `readBody` now checks `Content-Type` header and resolves immediately for non-JSON requests
+- Frontend `api.openFolder()` now always sends a JSON body (`{ path: '' }`)
+
+#### DOCX Viewer — Replaced mammoth with docx-preview
+- **Issue:** mammoth-based rendering showed empty content for all DOCX files
+- **Fix:** Replaced with `docx-preview` library (~75KB) which renders DOCX files with full formatting (bold, italic, tables, images, headings) — similar to WPS Office viewer
+- `DocxViewer.tsx`: Uses `renderAsync()` to render DOCX buffer directly into a DOM container
+- Added `docx-container` CSS styles for proper document formatting (fonts, tables, headings, dark mode)
+- DOCX editor now shows editable text area alongside formatted preview (toggleable)
+
+---
+
 ## Project Status: ALL STEPS COMPLETE + POST-LAUNCH FIXES APPLIED

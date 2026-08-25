@@ -2,11 +2,12 @@ import http from 'node:http'
 import fsp from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFile } from 'node:child_process'
+import { execFile, exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 
 const execFileAsync = promisify(execFile)
+const execAsync = promisify(exec)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '..', 'dist')
 const PORT = process.env.PORT || 3001
@@ -38,6 +39,10 @@ function json(res, status, data) {
 }
 
 function readBody(req, limit = 10 * 1024 * 1024) {
+  const contentType = req.headers['content-type'] || ''
+  if (!contentType.includes('application/json')) {
+    return Promise.resolve({})
+  }
   return new Promise((resolve, reject) => {
     let size = 0
     const chunks = []
@@ -118,6 +123,24 @@ async function writeFileSafe(relPath, content) {
   const abs = resolveSafe(relPath)
   await fsp.mkdir(path.dirname(abs), { recursive: true })
   await fsp.writeFile(abs, content, 'utf-8')
+}
+
+async function writeDocxSafe(relPath, textContent) {
+  if (extOf(relPath) !== '.docx') throw new Error('Only .docx files can be written via this endpoint')
+  const abs = resolveSafe(relPath)
+  const { Document, Packer, Paragraph, TextRun } = await import('docx')
+  const paragraphs = textContent.split('\n').map(
+    (line) =>
+      new Paragraph({
+        children: [new TextRun({ text: line, font: 'Times New Roman', size: 24 })],
+      })
+  )
+  const doc = new Document({
+    sections: [{ properties: {}, children: paragraphs }],
+  })
+  const buffer = await Packer.toBuffer(doc)
+  await fsp.mkdir(path.dirname(abs), { recursive: true })
+  await fsp.writeFile(abs, buffer)
 }
 
 async function createFileSafe(relPath) {
@@ -206,6 +229,33 @@ async function handleApi(req, res, pathname) {
       const body = await readBody(req)
       if (!body.path) throw new Error('Missing "path"')
       await createFileSafe(body.path)
+      json(res, 200, { ok: true })
+      return true
+    }
+    if (pathname === '/api/file/docx' && req.method === 'POST') {
+      const body = await readBody(req)
+      if (!body.path || typeof body.content !== 'string') throw new Error('Missing "path" or "content"')
+      await writeDocxSafe(body.path, body.content)
+      json(res, 200, { ok: true })
+      return true
+    }
+    if (pathname === '/api/open-folder' && req.method === 'POST') {
+      const body = await readBody(req).catch(() => ({}))
+      const targetDir = body.path || rootDir
+      console.log('[open-folder] targetDir:', targetDir, 'rootDir:', rootDir, 'body:', body)
+      if (!targetDir) throw new Error('No directory configured')
+      if (!fs.existsSync(targetDir)) throw new Error(`Directory does not exist: ${targetDir}`)
+      const platform = process.platform
+      let cmd
+      if (platform === 'darwin') {
+        cmd = `open "${targetDir}"`
+      } else if (platform === 'win32') {
+        cmd = `explorer "${targetDir}"`
+      } else {
+        cmd = `xdg-open "${targetDir}"`
+      }
+      console.log('[open-folder] running:', cmd)
+      execAsync(cmd).catch((err) => console.error('[open-folder] exec error:', err.message))
       json(res, 200, { ok: true })
       return true
     }

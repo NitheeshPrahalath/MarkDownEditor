@@ -193,3 +193,45 @@ body {
 .dark .novel-preview th {
   background: #111827;
 }
+
+.docx-container {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #1f2937;
+}
+
+.docx-container p {
+  margin: 0 0 0.5em;
+}
+
+.docx-container table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.docx-container th,
+.docx-container td {
+  border: 1px solid #d1d5db;
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+
+.docx-container th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
+.docx-container img {
+  max-width: 100%;
+}
+
+.docx-container h1 { font-size: 2em; font-weight: 700; margin: 0.6em 0 0.4em; }
+.docx-container h2 { font-size: 1.5em; font-weight: 700; margin: 0.6em 0 0.4em; }
+.docx-container h3 { font-size: 1.3em; font-weight: 600; margin: 0.5em 0 0.3em; }
+
+.dark .docx-container { color: #d1d5db; }
+.dark .docx-container th { background: #1f2937; }
+.dark .docx-container td,
+.dark .docx-container th { border-color: #4b5563; }

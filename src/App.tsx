@@ -19,6 +19,8 @@ function App() {
   const toggleToc = useStore((s) => s.toggleToc)
   const chaptersDrawer = useStore((s) => s.chaptersDrawer)
   const setChaptersDrawer = useStore((s) => s.setChaptersDrawer)
+  const sidebarOpen = useStore((s) => s.sidebarOpen)
+  const toggleSidebar = useStore((s) => s.toggleSidebar)
   const font = useStore((s) => s.font)
   const setFont = useStore((s) => s.setFont)
   const fontSize = useStore((s) => s.fontSize)
@@ -30,6 +32,9 @@ function App() {
   const statusMessage = useStore((s) => s.statusMessage)
 
   const [syncOpen, setSyncOpen] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
+  const [setupDismissed, setSetupDismissed] = useState(false)
+  const root = useStore((s) => s.root)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -80,6 +85,14 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusMode, toggleFocusMode, saveFile])
 
+  async function handleOpenFolder() {
+    try {
+      await api.openFolder()
+    } catch {
+      // folder may not open on all platforms, ignore silently
+    }
+  }
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {!focusMode && (
@@ -98,9 +111,14 @@ function App() {
               />
             </svg>
           </button>
-          <h1 className="hidden text-sm font-bold text-purple-700 sm:block dark:text-purple-400">
+          <button
+            onClick={toggleSidebar}
+            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-sm font-bold text-purple-700 transition hover:bg-purple-50 sm:block dark:text-purple-400 dark:hover:bg-purple-900/30"
+            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+
             Novel Editor
-          </h1>
+          </button>
           <div className="flex items-center gap-1 md:mx-2">
             {(['serif', 'sans'] as FontFamily[]).map((f) => (
               <button
@@ -139,6 +157,24 @@ function App() {
             />
           </label>
           <div className="ml-auto flex items-center gap-1 md:gap-2">
+            {configured && (
+              <button
+                onClick={() => void handleOpenFolder()}
+                className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                title="Open folder in file explorer"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 4.5V12a1 1 0 001 1h10a1 1 0 001-1V6a1 1 0 00-1-1H8L6.5 3.5A1 1 0 005.8 3H3a1 1 0 00-1 1z" stroke="currentColor" strokeWidth="1.3" />
+                </svg>
+              </button>
+            )}
+            <button
+              onClick={() => { setShowSetup(true); setSetupDismissed(false) }}
+              className="rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700 transition hover:bg-purple-200 dark:bg-purple-900/40 dark:text-purple-300"
+              title="Change working directory"
+            >
+              Set Folder
+            </button>
             <button
               onClick={toggleTheme}
               className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -206,7 +242,7 @@ function App() {
         </>
       ) : (
         <div className="relative flex min-h-0 flex-1">
-          <ChapterList />
+          {sidebarOpen && <ChapterList />}
           <EditorCanvas />
           {tocOpen && <TableOfContents />}
         </div>
@@ -218,7 +254,12 @@ function App() {
         </div>
       )}
       {syncOpen && <SyncPanel onClose={() => setSyncOpen(false)} />}
-      {!configured && <SetupDialog onClose={() => undefined} />}
+      {(!configured || showSetup) && !setupDismissed && (
+        <SetupDialog
+          onClose={() => { setShowSetup(false); setSetupDismissed(true) }}
+          defaultPath={configured ? root : undefined}
+        />
+      )}
     </div>
   )
 }

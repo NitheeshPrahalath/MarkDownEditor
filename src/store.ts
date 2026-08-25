@@ -12,6 +12,8 @@ interface NovelState {
   activeFile: string | null
   content: string
   savedContent: string
+  docxText: string
+  savedDocxText: string
   saving: boolean
   dirty: boolean
   editable: boolean
@@ -21,6 +23,7 @@ interface NovelState {
   focusMode: boolean
   tocOpen: boolean
   chaptersDrawer: boolean
+  sidebarOpen: boolean
   theme: Theme
   statusMessage: string
 
@@ -28,6 +31,7 @@ interface NovelState {
   loadFiles: () => Promise<void>
   openFile: (path: string) => Promise<void>
   setContent: (content: string) => void
+  setDocxText: (text: string) => void
   saveFile: () => Promise<void>
   newFile: (path: string) => Promise<void>
   setFont: (font: FontFamily) => void
@@ -36,6 +40,7 @@ interface NovelState {
   toggleFocusMode: () => void
   toggleToc: () => void
   setChaptersDrawer: (open: boolean) => void
+  toggleSidebar: () => void
   toggleTheme: () => void
   setStatus: (msg: string) => void
 }
@@ -51,6 +56,8 @@ export const useStore = create<NovelState>()(
       activeFile: null,
       content: '',
       savedContent: '',
+      docxText: '',
+      savedDocxText: '',
       saving: false,
       dirty: false,
       editable: true,
@@ -60,6 +67,7 @@ export const useStore = create<NovelState>()(
       focusMode: false,
       tocOpen: true,
       chaptersDrawer: false,
+      sidebarOpen: true,
       theme: 'light',
       statusMessage: '',
 
@@ -80,12 +88,15 @@ export const useStore = create<NovelState>()(
           await get().saveFile()
           const { content, encoding } = await api.readFile(path)
           const ext = path.slice(path.lastIndexOf('.')).toLowerCase()
+          const isDocx = ext === '.docx'
           set({
             activeFile: path,
             content,
             savedContent: content,
+            docxText: '',
+            savedDocxText: '',
             dirty: false,
-            editable: encoding === 'utf8',
+            editable: encoding === 'utf8' || isDocx,
           })
           if (!['.md', '.txt', '.csv'].includes(ext)) {
             set({ tocOpen: false })
@@ -104,13 +115,27 @@ export const useStore = create<NovelState>()(
         }, 1000)
       },
 
+      setDocxText: (text) => {
+        set({ docxText: text, dirty: text !== get().savedDocxText })
+        if (saveTimer) clearTimeout(saveTimer)
+        saveTimer = setTimeout(() => {
+          void get().saveFile()
+        }, 1000)
+      },
+
       saveFile: async () => {
         const state = get()
         if (!state.activeFile || !state.dirty || state.saving) return
         set({ saving: true })
         try {
-          await api.writeFile(state.activeFile, state.content)
-          set({ savedContent: state.content, dirty: false, saving: false })
+          const ext = state.activeFile.slice(state.activeFile.lastIndexOf('.')).toLowerCase()
+          if (ext === '.docx') {
+            await api.writeDocx(state.activeFile, state.docxText)
+            set({ savedDocxText: state.docxText, dirty: false, saving: false })
+          } else {
+            await api.writeFile(state.activeFile, state.content)
+            set({ savedContent: state.content, dirty: false, saving: false })
+          }
         } catch (err) {
           set({ saving: false, statusMessage: `Save failed: ${String(err)}` })
         }
@@ -133,6 +158,7 @@ export const useStore = create<NovelState>()(
         set((s) => ({ focusMode: !s.focusMode, chaptersDrawer: false })),
       toggleToc: () => set((s) => ({ tocOpen: !s.tocOpen })),
       setChaptersDrawer: (chaptersDrawer) => set({ chaptersDrawer }),
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
       setStatus: (statusMessage) => set({ statusMessage }),
     }),
@@ -143,6 +169,7 @@ export const useStore = create<NovelState>()(
         fontSize: s.fontSize,
         lineHeight: s.lineHeight,
         tocOpen: s.tocOpen,
+        sidebarOpen: s.sidebarOpen,
         theme: s.theme,
       }),
     }

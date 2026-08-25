@@ -56,6 +56,16 @@ export const api = {
     }),
   createFile: (path: string) =>
     request<{ ok: boolean }>('/api/file', { method: 'POST', body: JSON.stringify({ path }) }),
+  writeDocx: (path: string, content: string) =>
+    request<{ ok: boolean }>('/api/file/docx', {
+      method: 'POST',
+      body: JSON.stringify({ path, content }),
+    }),
+  openFolder: (path?: string) =>
+    request<{ ok: boolean }>('/api/open-folder', {
+      method: 'POST',
+      body: JSON.stringify({ path: path || '' }),
+    }),
   gitRepo: () => request<GitRepoResponse>('/api/git/repo'),
   gitStatus: () => request<{ files: GitStatusFile[] }>('/api/git/status'),
   gitDiff: () => request<{ diff: string }>('/api/git/diff'),

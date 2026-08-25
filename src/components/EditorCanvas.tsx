@@ -28,12 +28,15 @@ export function EditorCanvas() {
   const content = useStore((s) => s.content)
   const editable = useStore((s) => s.editable)
   const setContent = useStore((s) => s.setContent)
+  const docxText = useStore((s) => s.docxText)
+  const setDocxText = useStore((s) => s.setDocxText)
   const font = useStore((s) => s.font)
   const fontSize = useStore((s) => s.fontSize)
   const lineHeight = useStore((s) => s.lineHeight)
   const [showPreview, setShowPreview] = useState(true)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const docxTextExtractedRef = useRef(false)
 
   const ext = extOf(activeFile)
   const isMarkdown = ext === '.md' || ext === '.txt' || ext === ''
@@ -46,7 +49,19 @@ export function EditorCanvas() {
 
   useEffect(() => {
     setShowPreview(true)
-  }, [activeFile])
+    if (ext === '.docx') docxTextExtractedRef.current = false
+  }, [activeFile, ext])
+
+  const handleDocxText = useCallback(
+    (text: string) => {
+      if (docxTextExtractedRef.current) return
+      if (text && text.trim()) {
+        docxTextExtractedRef.current = true
+        setDocxText(text)
+      }
+    },
+    [setDocxText]
+  )
 
   const scrollToHeading = useCallback(
     (id: string) => {
@@ -112,11 +127,38 @@ export function EditorCanvas() {
   if (ext === '.docx') {
     return (
       <main className="flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-gray-950">
-        <ViewOnlyBar fileName={activeFile} />
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <Suspense fallback={<Loading />}>
-            <DocxViewer base64={content} />
-          </Suspense>
+        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-3 py-1.5 dark:border-gray-800 dark:bg-gray-900">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Editing as plain text — save writes back to .docx
+          </span>
+          <button
+            onClick={() => setShowPreview(!showPreview)}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+              showPreview
+                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+            }`}
+          >
+            Preview
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <textarea
+            ref={textareaRef}
+            value={docxText}
+            onChange={(e) => setDocxText(e.target.value)}
+            spellCheck={false}
+            placeholder="Document text..."
+            style={textStyle}
+            className="min-w-0 flex-1 resize-none bg-white p-6 text-gray-800 outline-none dark:bg-gray-900 dark:text-gray-200"
+          />
+          {showPreview && (
+            <div className="min-w-0 flex-1 overflow-y-auto border-l border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+              <Suspense fallback={<Loading />}>
+                <DocxViewer base64={content} onTextExtracted={handleDocxText} />
+              </Suspense>
+            </div>
+          )}
         </div>
       </main>
     )

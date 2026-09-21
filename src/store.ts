@@ -4,6 +4,7 @@ import { api } from './api'
 
 export type FontFamily = 'serif' | 'sans'
 export type Theme = 'light' | 'dark'
+export type SidebarTab = 'files' | 'chapters'
 
 interface NovelState {
   root: string
@@ -17,6 +18,8 @@ interface NovelState {
   saving: boolean
   dirty: boolean
   editable: boolean
+  editMode: boolean
+  sidebarTab: SidebarTab
   font: FontFamily
   fontSize: number
   lineHeight: number
@@ -39,6 +42,8 @@ interface NovelState {
   setLineHeight: (lh: number) => void
   toggleFocusMode: () => void
   toggleToc: () => void
+  toggleEditMode: () => void
+  setSidebarTab: (tab: SidebarTab) => void
   setChaptersDrawer: (open: boolean) => void
   toggleSidebar: () => void
   toggleTheme: () => void
@@ -61,6 +66,8 @@ export const useStore = create<NovelState>()(
       saving: false,
       dirty: false,
       editable: true,
+      editMode: true,
+      sidebarTab: 'files',
       font: 'serif',
       fontSize: 18,
       lineHeight: 1.8,
@@ -157,6 +164,8 @@ export const useStore = create<NovelState>()(
       toggleFocusMode: () =>
         set((s) => ({ focusMode: !s.focusMode, chaptersDrawer: false })),
       toggleToc: () => set((s) => ({ tocOpen: !s.tocOpen })),
+      toggleEditMode: () => set((s) => ({ editMode: !s.editMode })),
+      setSidebarTab: (sidebarTab) => set({ sidebarTab }),
       setChaptersDrawer: (chaptersDrawer) => set({ chaptersDrawer }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
@@ -171,6 +180,8 @@ export const useStore = create<NovelState>()(
         tocOpen: s.tocOpen,
         sidebarOpen: s.sidebarOpen,
         theme: s.theme,
+        editMode: s.editMode,
+        sidebarTab: s.sidebarTab,
       }),
     }
   )

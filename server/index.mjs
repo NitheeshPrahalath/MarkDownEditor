@@ -1,4 +1,5 @@
 import http from 'node:http'
+import os from 'node:os'
 import fsp from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -80,6 +81,16 @@ function resolveSafe(relPath) {
   return resolved
 }
 
+function resolveOpen(relOrAbs) {
+  if (path.isAbsolute(relOrAbs)) return path.normalize(relOrAbs)
+  const base = rootDir && fs.existsSync(rootDir) ? rootDir : os.homedir()
+  const resolved = path.resolve(base, relOrAbs)
+  if (resolved !== path.resolve(base) && !resolved.startsWith(path.resolve(base) + path.sep)) {
+    throw new Error('Path escapes working directory')
+  }
+  return resolved
+}
+
 async function listFiles() {
   const results = []
   async function walk(dir) {
@@ -111,7 +122,7 @@ function extOf(relPath) {
 async function readFilePayload(relPath) {
   const ext = extOf(relPath)
   if (!ALL_EXTS.has(ext)) throw new Error(`Unsupported file type: ${ext}`)
-  const abs = resolveSafe(relPath)
+  const abs = resolveOpen(relPath)
   if (TEXT_EXTS.has(ext)) {
     return { path: relPath, content: await fsp.readFile(abs, 'utf-8'), encoding: 'utf8', ext }
   }
@@ -120,14 +131,14 @@ async function readFilePayload(relPath) {
 
 async function writeFileSafe(relPath, content) {
   if (!TEXT_EXTS.has(extOf(relPath))) throw new Error('Only text files (.md, .txt, .csv) can be written')
-  const abs = resolveSafe(relPath)
+  const abs = resolveOpen(relPath)
   await fsp.mkdir(path.dirname(abs), { recursive: true })
   await fsp.writeFile(abs, content, 'utf-8')
 }
 
 async function writeDocxSafe(relPath, textContent) {
   if (extOf(relPath) !== '.docx') throw new Error('Only .docx files can be written via this endpoint')
-  const abs = resolveSafe(relPath)
+  const abs = resolveOpen(relPath)
   const { Document, Packer, Paragraph, TextRun } = await import('docx')
   const paragraphs = textContent.split('\n').map(
     (line) =>
@@ -145,7 +156,7 @@ async function writeDocxSafe(relPath, textContent) {
 
 async function createFileSafe(relPath) {
   if (!TEXT_EXTS.has(extOf(relPath))) throw new Error('Only text files can be created')
-  const abs = resolveSafe(relPath)
+  const abs = resolveOpen(relPath)
   try {
     await fsp.access(abs)
     throw new Error('File already exists')
@@ -205,9 +216,64 @@ async function handleApi(req, res, pathname) {
       return true
     }
 
-    requireRoot()
+    if (pathname === '/api/browse' && req.method === 'GET') {
+      const urlObj = new URL(req.url, 'http://x')
+      let target = urlObj.searchParams.get('path') || ''
+      if (!target) {
+        target = rootDir && fs.existsSync(rootDir) ? rootDir : os.homedir()
+      } else {
+        target = path.normalize(path.resolve(target))
+      }
+      if (!fs.existsSync(target)) throw new Error(`Path does not exist: ${target}`)
+      let entries
+      try {
+        entries = await fsp.readdir(target, { withFileTypes: true })
+      } catch (err) {
+        throw new Error(`Cannot read directory: ${target} (${err?.code || err?.message || ''})`)
+      }
+      const dirs = []
+      const files = []
+      for (const entry of entries) {
+        if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue
+        if (entry.isDirectory()) {
+          dirs.push(entry.name)
+        } else if (entry.isFile() && ALL_EXTS.has(extOf(entry.name))) {
+          files.push({ name: entry.name, path: path.join(target, entry.name), ext: extOf(entry.name) })
+        }
+      }
+      dirs.sort((a, b) => a.localeCompare(b))
+      files.sort((a, b) => a.name.localeCompare(b.name))
+      const parentDir = path.dirname(target)
+      const home = os.homedir()
+      const quick = []
+      const addQuick = (name, p) => {
+        if (p !== target && fs.existsSync(p)) quick.push({ name, path: p })
+      }
+      addQuick('Home', home)
+      addQuick('Documents', path.join(home, 'Documents'))
+      addQuick('Downloads', path.join(home, 'Downloads'))
+      addQuick('Desktop', path.join(home, 'Desktop'))
+      json(res, 200, {
+        path: target,
+        parent: target === parentDir ? null : parentDir,
+        home,
+        quick,
+        dirs,
+        files,
+      })
+      return true
+    }
+    if (pathname === '/api/mkdir' && req.method === 'POST') {
+      const body = await readBody(req)
+      if (!body.path || typeof body.path !== 'string') throw new Error('Missing "path"')
+      const abs = path.normalize(path.resolve(body.path))
+      await fsp.mkdir(abs, { recursive: true })
+      json(res, 200, { ok: true })
+      return true
+    }
 
     if (pathname === '/api/files' && req.method === 'GET') {
+      requireRoot()
       json(res, 200, { files: await listFiles() })
       return true
     }
@@ -260,6 +326,7 @@ async function handleApi(req, res, pathname) {
       return true
     }
     if (pathname === '/api/git/repo' && req.method === 'GET') {
+      requireRoot()
       const isRepo = await gitIsRepo()
       json(res, 200, {
         isRepo,
@@ -367,7 +434,7 @@ const server = http.createServer(async (req, res) => {
   serveStatic(req, res, pathname)
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   const hasDist = fs.existsSync(path.join(DIST_DIR, 'index.html'))
   console.log(
     `Novel editor listening on http://localhost:${PORT}${hasDist ? '' : ' (API only — run "npm run build" to serve the UI)'}`

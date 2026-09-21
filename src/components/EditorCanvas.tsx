@@ -28,6 +28,8 @@ export function EditorCanvas() {
   const content = useStore((s) => s.content)
   const editable = useStore((s) => s.editable)
   const setContent = useStore((s) => s.setContent)
+  const editMode = useStore((s) => s.editMode)
+  const toggleEditMode = useStore((s) => s.toggleEditMode)
   const docxText = useStore((s) => s.docxText)
   const setDocxText = useStore((s) => s.setDocxText)
   const font = useStore((s) => s.font)
@@ -41,6 +43,7 @@ export function EditorCanvas() {
   const ext = extOf(activeFile)
   const isMarkdown = ext === '.md' || ext === '.txt' || ext === ''
   const isPlainText = ext === '.txt' || ext === '.csv'
+  const isMarkdownNotPlain = isMarkdown && !isPlainText
 
   const parsed = useMemo(
     () => (isMarkdown && !isPlainText ? parseDocument(content) : null),
@@ -181,10 +184,10 @@ export function EditorCanvas() {
     <main className="flex min-w-0 flex-1 flex-col bg-gray-50 dark:bg-gray-950">
       {editable ? (
         <div className="flex items-center justify-end border-b border-gray-200 bg-white px-3 py-1.5 dark:border-gray-800 dark:bg-gray-900">
-          {!isPlainText && (
+          {editMode && !isPlainText && (
             <button
               onClick={() => setShowPreview(!showPreview)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+              className={`mr-1 rounded px-2.5 py-1 text-xs font-medium transition ${
                 showPreview
                   ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                   : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
@@ -193,32 +196,84 @@ export function EditorCanvas() {
               Preview
             </button>
           )}
+          <ModeToggle editMode={editMode} onToggle={toggleEditMode} />
         </div>
       ) : (
         <ViewOnlyBar fileName={activeFile} />
       )}
-      <div className="flex min-h-0 flex-1">
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          spellCheck={false}
-          placeholder={isPlainText ? 'Plain text file...' : 'Start writing your novel...'}
-          style={textStyle}
-          className={`min-w-0 flex-1 resize-none bg-white p-6 text-gray-800 outline-none dark:bg-gray-900 dark:text-gray-200 ${
-            isPlainText ? 'whitespace-pre-wrap' : ''
-          }`}
-        />
-        {editable && showPreview && parsed && (
-          <div
-            ref={previewRef}
+      {!editable ? (
+        <div className="flex min-h-0 flex-1">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            readOnly
+            spellCheck={false}
+            placeholder={isPlainText ? 'Plain text file...' : 'Start writing your novel...'}
             style={textStyle}
-            className="novel-preview min-w-0 flex-1 overflow-y-auto border-l border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900"
+            className={`min-w-0 flex-1 resize-none bg-white p-6 text-gray-800 outline-none dark:bg-gray-900 dark:text-gray-200 ${
+              isPlainText ? 'whitespace-pre-wrap' : ''
+            }`}
+          />
+        </div>
+      ) : editMode ? (
+        <div className="flex min-h-0 flex-1">
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            spellCheck={false}
+            placeholder={isPlainText ? 'Plain text file...' : 'Start writing your novel...'}
+            style={textStyle}
+            className={`min-w-0 flex-1 resize-none bg-white p-6 text-gray-800 outline-none dark:bg-gray-900 dark:text-gray-200 ${
+              isPlainText ? 'whitespace-pre-wrap' : ''
+            }`}
+          />
+          {showPreview && parsed && (
+            <div
+              ref={previewRef}
+              style={textStyle}
+              className="novel-preview min-w-0 flex-1 overflow-y-auto border-l border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900"
+              dangerouslySetInnerHTML={{ __html: parsed.html }}
+            />
+          )}
+        </div>
+      ) : isMarkdownNotPlain && parsed ? (
+        <div ref={previewRef} className="min-h-0 flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+          <article
+            style={textStyle}
+            className="novel-preview mx-auto max-w-3xl px-6 py-8"
             dangerouslySetInnerHTML={{ __html: parsed.html }}
           />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap bg-white p-6 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+          {content}
+        </div>
+      )}
     </main>
+  )
+}
+
+function ModeToggle({ editMode, onToggle }: { editMode: boolean; onToggle: () => void }) {
+  return (
+    <div className="flex items-center overflow-hidden rounded border border-purple-200 dark:border-purple-900">
+      {([
+        { label: 'Edit', value: true },
+        { label: 'View', value: false },
+      ] as const).map((opt) => (
+        <button
+          key={opt.label}
+          onClick={onToggle}
+          className={`px-3 py-1 text-xs font-medium transition ${
+            editMode === opt.value
+              ? 'bg-purple-600 text-white'
+              : 'bg-white text-gray-500 hover:bg-purple-50 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-purple-900/30'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
   )
 }
 

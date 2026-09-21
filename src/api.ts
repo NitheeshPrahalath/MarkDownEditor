@@ -25,6 +25,21 @@ export interface GitStatusFile {
   file: string
 }
 
+export interface BrowseFile {
+  name: string
+  path: string
+  ext: string
+}
+
+export interface BrowseResponse {
+  path: string
+  parent: string | null
+  home: string
+  quick: { name: string; path: string }[]
+  dirs: string[]
+  files: BrowseFile[]
+}
+
 export interface Commit {
   hash: string
   author: string
@@ -47,6 +62,10 @@ export const api = {
   setConfig: (root: string) =>
     request<ConfigResponse>('/api/config', { method: 'POST', body: JSON.stringify({ root }) }),
   listFiles: () => request<FileListResponse>('/api/files'),
+  browse: (path?: string) =>
+    request<BrowseResponse>(`/api/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`),
+  mkdir: (path: string) =>
+    request<{ ok: boolean }>('/api/mkdir', { method: 'POST', body: JSON.stringify({ path }) }),
   readFile: (path: string) =>
     request<FileContentResponse>(`/api/file?path=${encodeURIComponent(path)}`),
   writeFile: (path: string, content: string) =>

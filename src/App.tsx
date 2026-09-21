@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { useStore, type FontFamily } from './store'
-import { ChapterList } from './components/ChapterList'
+import { Sidebar } from './components/Sidebar'
 import { EditorCanvas } from './components/EditorCanvas'
 import { TableOfContents } from './components/TableOfContents'
 import { SetupDialog } from './components/SetupDialog'
@@ -12,6 +12,7 @@ function App() {
   const configured = useStore((s) => s.configured)
   const setRoot = useStore((s) => s.setRoot)
   const loadFiles = useStore((s) => s.loadFiles)
+  const openFile = useStore((s) => s.openFile)
   const saveFile = useStore((s) => s.saveFile)
   const focusMode = useStore((s) => s.focusMode)
   const toggleFocusMode = useStore((s) => s.toggleFocusMode)
@@ -30,6 +31,7 @@ function App() {
   const theme = useStore((s) => s.theme)
   const toggleTheme = useStore((s) => s.toggleTheme)
   const statusMessage = useStore((s) => s.statusMessage)
+  const toggleEditMode = useStore((s) => s.toggleEditMode)
 
   const [syncOpen, setSyncOpen] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
@@ -51,9 +53,14 @@ function App() {
       } catch {
         // backend not reachable yet
       }
+      const fileParam = new URLSearchParams(window.location.search).get('file')
+      if (fileParam) {
+        await openFile(fileParam)
+        window.history.replaceState(null, '', window.location.pathname)
+      }
     }
     void init()
-  }, [setRoot, loadFiles])
+  }, [setRoot, loadFiles, openFile])
 
   useEffect(() => {
     if (!configured) return
@@ -80,10 +87,14 @@ function App() {
         e.preventDefault()
         void saveFile()
       }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault()
+        toggleEditMode()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [focusMode, toggleFocusMode, saveFile])
+  }, [focusMode, toggleFocusMode, saveFile, toggleEditMode])
 
   async function handleOpenFolder() {
     try {
@@ -242,7 +253,7 @@ function App() {
         </>
       ) : (
         <div className="relative flex min-h-0 flex-1">
-          {sidebarOpen && <ChapterList />}
+          {sidebarOpen && <Sidebar />}
           <EditorCanvas />
           {tocOpen && <TableOfContents />}
         </div>

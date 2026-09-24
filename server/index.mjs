@@ -3,12 +3,11 @@ import os from 'node:os'
 import fsp from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFile, exec } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 
 const execFileAsync = promisify(execFile)
-const execAsync = promisify(exec)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '..', 'dist')
 const PORT = process.env.PORT || 3001
@@ -73,12 +72,15 @@ function requireRoot() {
   }
 }
 
-function resolveSafe(relPath) {
-  const resolved = path.resolve(rootDir, relPath)
-  if (resolved !== path.resolve(rootDir) && !resolved.startsWith(path.resolve(rootDir) + path.sep)) {
-    throw new Error('Path escapes working directory')
+function originAllowed(req) {
+  const origin = req.headers.origin
+  if (!origin) return true
+  try {
+    const host = new URL(origin).hostname
+    return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+  } catch {
+    return false
   }
-  return resolved
 }
 
 function resolveOpen(relOrAbs) {
@@ -308,20 +310,13 @@ async function handleApi(req, res, pathname) {
     if (pathname === '/api/open-folder' && req.method === 'POST') {
       const body = await readBody(req).catch(() => ({}))
       const targetDir = body.path || rootDir
-      console.log('[open-folder] targetDir:', targetDir, 'rootDir:', rootDir, 'body:', body)
       if (!targetDir) throw new Error('No directory configured')
       if (!fs.existsSync(targetDir)) throw new Error(`Directory does not exist: ${targetDir}`)
-      const platform = process.platform
-      let cmd
-      if (platform === 'darwin') {
-        cmd = `open "${targetDir}"`
-      } else if (platform === 'win32') {
-        cmd = `explorer "${targetDir}"`
-      } else {
-        cmd = `xdg-open "${targetDir}"`
-      }
-      console.log('[open-folder] running:', cmd)
-      execAsync(cmd).catch((err) => console.error('[open-folder] exec error:', err.message))
+      const opener =
+        process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open'
+      execFileAsync(opener, [path.resolve(targetDir)]).catch((err) =>
+        console.error('[open-folder] exec error:', err.message)
+      )
       json(res, 200, { ok: true })
       return true
     }
@@ -428,6 +423,10 @@ function serveStatic(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://x').pathname
   if (pathname.startsWith('/api/')) {
+    if (!originAllowed(req)) {
+      json(res, 403, { error: 'Forbidden' })
+      return
+    }
     const handled = await handleApi(req, res, pathname)
     if (handled) return
   }

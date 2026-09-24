@@ -132,19 +132,31 @@ export const useStore = create<NovelState>()(
 
       saveFile: async () => {
         const state = get()
-        if (!state.activeFile || !state.dirty || state.saving) return
+        if (!state.activeFile || state.saving || !state.dirty) return
+        const ext = state.activeFile.slice(state.activeFile.lastIndexOf('.')).toLowerCase()
+        const isDocx = ext === '.docx'
+        const snapshot = isDocx ? state.docxText : state.content
         set({ saving: true })
         try {
-          const ext = state.activeFile.slice(state.activeFile.lastIndexOf('.')).toLowerCase()
-          if (ext === '.docx') {
-            await api.writeDocx(state.activeFile, state.docxText)
-            set({ savedDocxText: state.docxText, dirty: false, saving: false })
-          } else {
-            await api.writeFile(state.activeFile, state.content)
-            set({ savedContent: state.content, dirty: false, saving: false })
-          }
+          if (isDocx) await api.writeDocx(state.activeFile, snapshot)
+          else await api.writeFile(state.activeFile, snapshot)
         } catch (err) {
           set({ saving: false, statusMessage: `Save failed: ${String(err)}` })
+          return
+        }
+        const latest = isDocx ? get().docxText : get().content
+        if (latest === snapshot) {
+          set({
+            saving: false,
+            dirty: false,
+            ...(isDocx ? { savedDocxText: snapshot } : { savedContent: snapshot }),
+          })
+        } else {
+          set({ saving: false })
+          if (saveTimer) clearTimeout(saveTimer)
+          saveTimer = setTimeout(() => {
+            void get().saveFile()
+          }, 1000)
         }
       },
 

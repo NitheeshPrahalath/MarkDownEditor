@@ -366,4 +366,15 @@ The **Commit** and **Commit & Push** buttons run `git add -A` server-side before
 
 ---
 
+## Security & Autosave Hardening (Post-Review)
+> **Status:** Complete
+
+### Changes
+- **Command injection fix:** `/api/open-folder` now uses `execFile` with an argument array (`xdg-open` / `open` / `explorer`) instead of shell `exec` with an interpolated path — filenames containing `"`, `$()`, etc. can no longer execute commands.
+- **Origin check on all `/api` routes:** requests whose `Origin` header isn't `localhost`, `127.0.0.1`, or `[::1]` are rejected with HTTP 403. Headerless requests (curl, same-origin navigations) still pass. This blocks random web pages from driving the local file/git bridge.
+- **Autosave race fix:** `saveFile` snapshots content before the write; if new keystrokes land while the write is in flight, it keeps the file dirty and re-schedules the debounced save instead of marking unsaved content as saved.
+- Removed leftover debug `console.log`s from the open-folder endpoint.
+
+---
+
 ## Project Status: ALL STEPS COMPLETE + POST-LAUNCH FIXES APPLIED
